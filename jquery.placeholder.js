@@ -92,12 +92,15 @@
                                                  if (this.value===input.attr('placeholder'))
                                                      $(this).trigger('focus');
                                              });
-                $(input[0].form).submit(function() {
+                $(input[0].form).bind('submit.placeholder', function() {
                     fakeHTML.remove();
                     input.show()
+                    input.unbind('.placeholder')
+                    $(this).unbind('.placeholder');
                 });
             }
         }
+        
     };
     var NATIVE_SUPPORT = !!("placeholder" in document.createElement( "input" ));
     $.fn.placeholder = function() {
@@ -105,17 +108,17 @@
             var input = $(this);
             var placeholder = new Placeholder(input);
             placeholder.show(true);
-            input.keydown(function() {
+            input.bind('keydown.placeholder', function() {
                 if (this.value==='')
                     placeholder.show(false);
                 else
                     placeholder.hide();
-            }).keyup(function() {
+            }).bind('keyup.placeholder', function() {
                 if (this.value==='')
                     placeholder.show(false);
-            }).blur(function() {
+            }).bind('blur.placeholder', function() {
                 placeholder.show(false);
-            }).mouseup(function(){
+            }).bind('mouseup.placeholder', function(){
                 if (this.value===placeholder.input.attr('placeholder'))
                     input.trigger('focus');
             });
@@ -131,7 +134,7 @@
                 });
                 // What's even worse, the text cursor disappears
                 // when tabbing between text inputs, here's a fix
-                input.focus(function() {
+                input.bind('focus.placeholder', function() {
                     setCaretToPos(this, 0);
                 });
             }
