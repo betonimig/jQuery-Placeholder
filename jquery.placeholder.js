@@ -5,6 +5,26 @@
 * Released under the MIT, BSD, and GPL Licenses.
 */
 (function($) {
+    function setSelectionRange(input, selectionStart, selectionEnd) {
+      if (input.setSelectionRange) {
+        input.focus();
+        input.setSelectionRange(selectionStart, selectionEnd);
+      }
+      else if (input.createTextRange) {
+        var range = input.createTextRange();
+        range.collapse(true);
+        if (selectionEnd==selectionStart){
+            range.move("character", selectionStart);
+        }else{
+            range.moveEnd('character', selectionEnd);
+            range.moveStart('character', selectionStart);
+        }
+        range.select();
+      }
+    }
+    function setCaretToPos (input, pos) {
+      setSelectionRange(input, pos, pos);
+    }
     function Placeholder(input) {
         this.input = input;
         if (input.attr('type') == 'password') {
@@ -22,15 +42,19 @@
             // FF and IE saves values when you refresh the page. If the user refreshes the page with
             // the placeholders showing they will be the default values and the input fields won't be empty.
             if (this.input[0].value === '' || (loading && this.valueIsPlaceholder())) {
+                var ifocus = this.input;
                 if (this.isPassword) {
                     try {
+                        if($.browser.msie) throw true;
                         this.input[0].setAttribute('type', 'text');
                     } catch (e) {
                         this.input.before(this.fakePassword.show()).hide();
                     }
+                    ifocus = this.fakePassword;
                 }
                 this.input.addClass('placeholder');
                 this.input[0].value = this.input.attr('placeholder');
+                ifocus.trigger('focus');
             }
         },
         hide : function() {
@@ -57,10 +81,17 @@
             // IE < 9 doesn't allow changing the type of password inputs
             if ($.browser.msie && input[0].outerHTML) {
                 var fakeHTML = $(input[0].outerHTML.replace(/type=(['"])?password\1/gi, 'type=$1text$1'));
-                this.fakePassword = fakeHTML.val(input.attr('placeholder')).addClass('placeholder').focus(function() {
-                    input.trigger('focus');
-                    $(this).hide();
-                });
+                this.fakePassword = fakeHTML.val(input.attr('placeholder'))
+                                             .addClass('placeholder')
+                                             .keydown(function() {
+                                                 input.trigger('keydown');
+                                                 $(this).hide();
+                                             }).focus(function(){
+                                                 setCaretToPos(this, 0);
+                                             }).mouseup(function(){
+                                                 if (this.value===input.attr('placeholder'))
+                                                     $(this).trigger('focus');
+                                             });
                 $(input[0].form).submit(function() {
                     fakeHTML.remove();
                     input.show()
@@ -74,11 +105,19 @@
             var input = $(this);
             var placeholder = new Placeholder(input);
             placeholder.show(true);
-            input.focus(function() {
-                placeholder.hide();
-            });
-            input.blur(function() {
+            input.keydown(function() {
+                if (this.value==='')
+                    placeholder.show(false);
+                else
+                    placeholder.hide();
+            }).keyup(function() {
+                if (this.value==='')
+                    placeholder.show(false);
+            }).blur(function() {
                 placeholder.show(false);
+            }).mouseup(function(){
+                if (this.value===placeholder.input.attr('placeholder'))
+                    input.trigger('focus');
             });
 
             // On page refresh, IE doesn't re-populate user input
@@ -93,12 +132,7 @@
                 // What's even worse, the text cursor disappears
                 // when tabbing between text inputs, here's a fix
                 input.focus(function() {
-                    if(this.value == "") {
-                        var range = this.createTextRange();
-                        range.collapse(true);
-                        range.moveStart('character', 0);
-                        range.select();
-                    }
+                    setCaretToPos(this, 0);
                 });
             }
         });
